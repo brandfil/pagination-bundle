@@ -1,0 +1,1 @@
+# ActiveBundle for symfony
