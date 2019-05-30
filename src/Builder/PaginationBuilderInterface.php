@@ -54,4 +54,10 @@ interface PaginationBuilderInterface
      * @return PaginatorInterface
      */
     public function getResults(): PaginatorInterface;
+
+    /**
+     * @param string|null $cursor
+     * @return PaginationBuilderInterface
+     */
+    public function setCursor(string $cursor = null): PaginationBuilderInterface;
 }

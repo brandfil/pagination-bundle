@@ -60,6 +60,11 @@ class PaginationBuilder implements PaginationBuilderInterface
      */
     private $alias = 'o';
 
+    /**
+     * @var string
+     */
+    private $cursor;
+
 
     public function __construct(ManagerRegistry $doctrine, PaginatorInterface $paginator)
     {
@@ -117,6 +122,15 @@ class PaginationBuilder implements PaginationBuilderInterface
     /**
      * {@inheritdoc}
      */
+    public function setCursor(string $cursor = null): PaginationBuilderInterface
+    {
+        $this->cursor = $cursor;
+        return $this;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function model(string $model, \Closure $callQueryBuilder = null, string $alias = null): PaginationBuilderInterface
     {
         if($alias) {
@@ -132,10 +146,22 @@ class PaginationBuilder implements PaginationBuilderInterface
         return $this;
     }
 
+    private function getCursorId(): ?int
+    {
+        $queryBuilder = clone $this->queryBuilder;
+
+        $object = $queryBuilder->where('o.uuid = :uuid')
+            ->setParameter('uuid', $this->cursor, 'uuid_binary')
+            ->getQuery()
+            ->getSingleResult();
+
+        return $object ? $object->getId() : null;
+    }
+
     /**
      * {@inheritdoc}
      */
-    public function getResults(): PaginatorInterface
+    public function getResults($type = 'default'): PaginatorInterface
     {
         if($this->countRows) {
             $queryBuilder = clone $this->queryBuilder; // magic happens in here
@@ -153,9 +179,34 @@ class PaginationBuilder implements PaginationBuilderInterface
         });
 
         $offset = ($this->page-1)*$this->limit;
-        $queryBuilder->setFirstResult($offset)->setMaxResults($this->limit);
 
-        $this->paginator->setData($queryBuilder->getQuery()->getResult());
+        if($type === 'cursor') {
+
+            if($this->cursor) {
+                $queryBuilder
+                    ->where('o.id < :cursor')
+                    ->setParameter('cursor', $this->getCursorId())
+                ;
+            }
+
+            $queryBuilder
+                ->orderBy('o.id', 'DESC')
+                ->setMaxResults($this->limit+1)
+            ;
+            $results = $queryBuilder->getQuery()->getResult();
+            $data = array_slice($results, 0, $this->limit);
+
+            if(count($results) > $this->limit) {
+                $cursor = array_last($results);
+                $this->paginator->setNextCursor($cursor->getUuid());
+            }
+
+        } else {
+            $queryBuilder->setFirstResult($offset)->setMaxResults($this->limit);
+            $data = $queryBuilder->getQuery()->getResult();
+        }
+
+        $this->paginator->setData($data);
 
         return $this->paginator;
     }

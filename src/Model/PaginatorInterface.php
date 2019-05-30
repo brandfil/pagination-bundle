@@ -31,4 +31,10 @@ interface PaginatorInterface
      * @return PaginatorInterface
      */
     public function setData($data): PaginatorInterface;
+
+    /**
+     * @param string $nextCursor
+     * @return PaginatorInterface
+     */
+    public function setNextCursor($nextCursor): PaginatorInterface;
 }
