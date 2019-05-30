@@ -184,7 +184,7 @@ class PaginationBuilder implements PaginationBuilderInterface
 
             if($this->cursor) {
                 $queryBuilder
-                    ->where('o.id < :cursor')
+                    ->where('o.id <= :cursor')
                     ->setParameter('cursor', $this->getCursorId())
                 ;
             }
