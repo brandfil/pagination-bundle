@@ -65,6 +65,11 @@ class PaginationBuilder implements PaginationBuilderInterface
      */
     private $cursor;
 
+    /**
+     * @var mixed
+     */
+    private $model;
+
 
     public function __construct(ManagerRegistry $doctrine, PaginatorInterface $paginator)
     {
@@ -133,11 +138,13 @@ class PaginationBuilder implements PaginationBuilderInterface
      */
     public function model(string $model, \Closure $callQueryBuilder = null, string $alias = null): PaginationBuilderInterface
     {
+        $this->model = $model;
+
         if($alias) {
             $this->alias = $alias;
         }
 
-        $this->queryBuilder = $this->doctrine->getRepository($model)->createQueryBuilder($this->alias);
+        $this->queryBuilder = $this->doctrine->getRepository($this->model)->createQueryBuilder($this->alias);
 
         if(is_callable($callQueryBuilder)) {
             $this->queryBuilder = $callQueryBuilder($this->queryBuilder);
@@ -148,7 +155,7 @@ class PaginationBuilder implements PaginationBuilderInterface
 
     private function getCursorId(): ?int
     {
-        $queryBuilder = clone $this->queryBuilder;
+        $queryBuilder = $this->doctrine->getRepository($this->model)->createQueryBuilder($this->alias);
 
         $object = $queryBuilder->where('o.uuid = :uuid')
             ->setParameter('uuid', $this->cursor, 'uuid_binary')
@@ -183,8 +190,10 @@ class PaginationBuilder implements PaginationBuilderInterface
         if($type === 'cursor') {
 
             if($this->cursor) {
+                $methodWhere = preg_match('/WHERE/', $queryBuilder->getDQL()) ? 'andWhere' : 'where';
+
                 $queryBuilder
-                    ->where('o.id <= :cursor')
+                    ->{$methodWhere}('o.id <= :cursor')
                     ->setParameter('cursor', $this->getCursorId())
                 ;
             }
