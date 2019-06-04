@@ -182,7 +182,7 @@ class PaginationBuilder implements PaginationBuilderInterface
         $this->orderProperties->map(function (OrderProperty $property) use (&$queryBuilder, &$index) {
             $column = preg_match('/\./', $property->getColumn()) ? $property->getColumn() : $this->alias.'.'.$property->getColumn();
             $method = $index++ === 0 ? 'orderBy' : 'addOrderBy';
-            $queryBuilder->{$method}($column, $property->getDirection());
+            $queryBuilder = $queryBuilder->{$method}($column, $property->getDirection());
         });
 
         $offset = ($this->page-1)*$this->limit;
@@ -197,11 +197,7 @@ class PaginationBuilder implements PaginationBuilderInterface
                     ->setParameter('cursor', $this->getCursorId())
                 ;
             }
-
-            $queryBuilder
-                ->orderBy('o.id', 'DESC')
-                ->setMaxResults($this->limit+1)
-            ;
+            
             $results = $queryBuilder->getQuery()->getResult();
             $data = array_slice($results, 0, $this->limit);
 
