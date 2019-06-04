@@ -7,6 +7,7 @@ use Brandfil\BrandfilPaginationBundle\Model\PaginatorInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Persistence\ManagerRegistry;
+use Doctrine\ORM\NonUniqueResultException;
 use Doctrine\ORM\QueryBuilder;
 
 /**
@@ -160,7 +161,8 @@ class PaginationBuilder implements PaginationBuilderInterface
         $object = $queryBuilder->where('o.uuid = :uuid')
             ->setParameter('uuid', $this->cursor, 'uuid_binary')
             ->getQuery()
-            ->getSingleResult();
+            ->getScalarResult()
+        ;
 
         return $object ? $object->getId() : null;
     }
@@ -172,7 +174,11 @@ class PaginationBuilder implements PaginationBuilderInterface
     {
         if($this->countRows) {
             $queryBuilder = clone $this->queryBuilder; // magic happens in here
-            $rows = $queryBuilder->select('count('.$this->alias.'.id)')->getQuery()->getSingleScalarResult();
+            try {
+                $rows = $queryBuilder->select('count('.$this->alias.'.id)')->getQuery()->getSingleScalarResult();
+            } catch (NonUniqueResultException $e) {
+                $rows = count($queryBuilder->select('count('.$this->alias.'.id)')->getQuery()->getScalarResult());
+            }
             $this->paginator->setNumberOfRows($rows);
             $this->paginator->setLastPage(ceil($rows/$this->limit));
         }
@@ -180,7 +186,7 @@ class PaginationBuilder implements PaginationBuilderInterface
         $queryBuilder = $this->queryBuilder;
         $index = 0;
         $this->orderProperties->map(function (OrderProperty $property) use (&$queryBuilder, &$index) {
-            $column = preg_match('/\./', $property->getColumn()) ? $property->getColumn() : $this->alias.'.'.$property->getColumn();
+            $column = preg_match('/\./', $property->getColumn()) ? $property->getColumn() : $property->getColumn();
             $method = $index++ === 0 ? 'orderBy' : 'addOrderBy';
             $queryBuilder = $queryBuilder->{$method}($column, $property->getDirection());
         });
@@ -199,6 +205,14 @@ class PaginationBuilder implements PaginationBuilderInterface
             }
             
             $results = $queryBuilder->getQuery()->getResult();
+
+            // make sure nested data are flat objects
+            if(is_array($results[0])) {
+                $results = array_map(function ($arr) {
+                    return array_first($arr);
+                }, $results);
+            }
+
             $data = array_slice($results, 0, $this->limit);
 
             if(count($results) > $this->limit) {
