@@ -164,7 +164,13 @@ class PaginationBuilder implements PaginationBuilderInterface
             ->getScalarResult()
         ;
 
-        return $object ? $object->getId() : null;
+        if($object && is_object($object)) {
+            return $object->getId();
+        } else if($object && isset($object[0]['o_id'])) {
+            return $object[0]['o_id'];
+        }
+
+        return null;
     }
 
     /**
@@ -194,7 +200,6 @@ class PaginationBuilder implements PaginationBuilderInterface
         $offset = ($this->page-1)*$this->limit;
 
         if($type === 'cursor') {
-
             if($this->cursor) {
                 $methodWhere = preg_match('/WHERE/', $queryBuilder->getDQL()) ? 'andWhere' : 'where';
 
@@ -203,7 +208,7 @@ class PaginationBuilder implements PaginationBuilderInterface
                     ->setParameter('cursor', $this->getCursorId())
                 ;
             }
-            
+
             $results = $queryBuilder->getQuery()->getResult();
 
             // make sure nested data are flat objects
